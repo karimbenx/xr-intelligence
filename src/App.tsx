@@ -25,27 +25,31 @@ export const App: React.FC = () => {
 
         try {
             // Try fetching from Neon DB via Netlify Function first
-            const endpoint = forceSync ? '/.netlify/functions/sync-signals?sync=true' : '/.netlify/functions/sync-signals';
+            const endpoint = forceSync
+                ? '/.netlify/functions/sync-signals?sync=true'
+                : '/.netlify/functions/sync-signals';
+
             const response = await fetch(endpoint);
 
             if (response.ok) {
                 const data = await response.json();
                 if (data && data.length > 0) {
                     setArticles(data);
-                    setLoading(false);
-                    setSyncing(false);
-                    return;
+                } else if (!forceSync) {
+                    // If DB is empty and it wasn't a forced sync, fallback to direct
+                    const directData = await fetchIntelligenceBatch(ALL_FEEDS);
+                    setArticles(directData);
                 }
+            } else {
+                throw new Error(`Server responded with ${response.status}`);
             }
         } catch (e) {
             console.warn("DB Fetch failed, falling back to direct RSS", e);
-        }
-
-        if (!forceSync) {
-            // Fallback: Direct RSS fetch in client
+            // Fallback: Direct RSS fetch in client on failure
             const directData = await fetchIntelligenceBatch(ALL_FEEDS);
             setArticles(directData);
         }
+
         setLoading(false);
         setSyncing(false);
     }, []);

@@ -28,7 +28,11 @@ export const handler: Handler = async (event, _context) => {
         );
     `;
 
-    const shouldSync = event.queryStringParameters?.sync === "true" || true; // Always sync for now if possible or if no data
+    // Check if we have data or if a sync is forced
+    const countResult = await sql`SELECT COUNT(*) FROM signals`;
+    const rowCount = parseInt(countResult[0].count);
+
+    const shouldSync = event.queryStringParameters?.sync === "true" || rowCount === 0;
 
     if (shouldSync) {
         await Promise.allSettled(
