@@ -1,0 +1,33 @@
+{
+    "name": "xr-platinum-intelligence-v8",
+    "private": true,
+    "version": "8.6.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "sync": "node ./src/services/sync-worker.js"
+    },
+    "dependencies": {
+        "axios": "^1.14.0",
+        "clsx": "^2.1.1",
+        "lucide-react": "^0.292.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "rss-parser": "^3.13.0",
+        "tailwind-merge": "^3.5.0"
+    },
+    "devDependencies": {
+        "@netlify/functions": "^5.1.5",
+        "@types/react": "^18.3.28",
+        "@types/react-dom": "^18.3.7",
+        "@vitejs/plugin-react-swc": "^4.3.0",
+        "autoprefixer": "^10.4.27",
+        "postcss": "^8.5.8",
+        "tailwindcss": "^3.4.19",
+        "typescript": "^5.9.3",
+        "vite": "^5.4.21",
+        "vite-plugin-singlefile": "^2.3.2"
+    }
+}
