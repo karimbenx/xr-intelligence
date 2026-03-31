@@ -51,13 +51,14 @@ export const handler: Handler = async (event, _context) => {
                         tags: detectTags((item.title || "") + " " + (item.contentSnippet || ""))
                     }));
 
-                    for (const item of items) {
-                        await sql`
+                    const insertPromises = items.map(item => 
+                        sql`
                             INSERT INTO articles (title, link, pub_date, snippet, source, topic, tags)
                             VALUES (${item.title}, ${item.link}, ${item.pub_date}, ${item.snippet}, ${item.source}, ${item.topic}, ${item.tags})
                             ON CONFLICT (link) DO NOTHING;
-                        `;
-                    }
+                        `
+                    );
+                    await Promise.allSettled(insertPromises);
                     return items.length;
                 } catch (err) {
                     console.error(`Fetch error for ${feed.url}:`, err);
