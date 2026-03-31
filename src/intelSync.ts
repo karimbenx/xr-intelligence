@@ -34,7 +34,7 @@ export async function fetchIntelligenceBatch(feeds: FeedSource[]): Promise<Intel
                 const parseError = xmlDoc.getElementsByTagName("parsererror")[0];
                 if (parseError) throw new Error("XML_PARSE_ERROR");
 
-                const items = Array.from(xmlDoc.querySelectorAll("item, entry"));
+                const items = Array.from(xmlDoc.querySelectorAll("item, entry, [nodeName='item'], [nodeName='entry']"));
                 let hostname = 'unknown';
                 try {
                     hostname = new URL(feed.url).hostname.replace('www.', '');
@@ -42,16 +42,21 @@ export async function fetchIntelligenceBatch(feeds: FeedSource[]): Promise<Intel
 
                 return items.map((item) => {
                     const title = item.querySelector("title")?.textContent || "Untitled Signal";
-                    const link = item.querySelector("link")?.getAttribute("href") || item.querySelector("link")?.textContent || "#";
-                    const pubDate = item.querySelector("pubDate, published, updated")?.textContent || new Date().toISOString();
+                    let link = item.querySelector("link")?.getAttribute("href") || item.querySelector("link")?.textContent || "#";
+                    if (link === "#") {
+                         const linkNode = item.getElementsByTagName("link")[0];
+                         link = linkNode?.getAttribute("href") || linkNode?.textContent || "#";
+                    }
+                    
+                    const pubDate = item.querySelector("pubDate, published, updated, dc\\:date")?.textContent || new Date().toISOString();
                     const description = item.querySelector("description, summary, content")?.textContent || "";
                     const contentSnippet = description.replace(/<[^>]*>/g, '').substring(0, 250);
 
                     return {
-                        title,
+                        title: title.trim(),
                         link,
                         pubDate,
-                        contentSnippet: contentSnippet || "No summary available.",
+                        contentSnippet: contentSnippet.trim() || "No summary available.",
                         source: hostname,
                         category: feed.page,
                         tags: detectTags(title + " " + contentSnippet)
@@ -64,13 +69,16 @@ export async function fetchIntelligenceBatch(feeds: FeedSource[]): Promise<Intel
         })
     );
 
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     return results
         .filter((res): res is PromiseFulfilledResult<IntelArticle[]> => res.status === 'fulfilled')
         .flatMap(res => res.value)
-        .filter(article => new Date(article.pubDate).getTime() > oneWeekAgo.getTime())
+        .filter(article => {
+            const d = new Date(article.pubDate);
+            return !isNaN(d.getTime()) && d.getTime() > thirtyDaysAgo.getTime();
+        })
         .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
 }
 
