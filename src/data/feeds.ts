@@ -53,10 +53,14 @@ export const ALL_FEEDS: FeedSource[] = [
   { url: "https://customerthink.com/feed/", page: "CUSTOMER", topic: "CX", subtopic: "Innovation" },
   { url: "https://www.marketingdive.com/feeds/news/", page: "CUSTOMER", topic: "Marketing", subtopic: "News" },
 
-  // --- Global Events ---
-  { url: "https://www.xra.org/feed/", page: "EVENTS", topic: "XR Events", subtopic: "Industry" },
-  { url: "https://www.eventindustrynews.com/feed/", page: "EVENTS", topic: "Event Tech", subtopic: "News" },
-  { url: "https://www.thevrara.com/feed.xml", page: "EVENTS", topic: "VRARA Events", subtopic: "Global" },
+  // --- Global Events (AR, VR, XR, MR, Web 3.0, Industry 4.0) ---
+  { url: "https://www.awexr.com/blog/rss", page: "EVENTS", topic: "AWE", subtopic: "AR/VR Events" },
+  { url: "https://www.xrtoday.com/tag/xr-events/feed/", page: "EVENTS", topic: "XR Today", subtopic: "Global Events" },
+  { url: "https://www.thevrara.com/feed.xml", page: "EVENTS", topic: "VRARA", subtopic: "Chapter Events" },
+  { url: "https://www.xra.org/feed/", page: "EVENTS", topic: "XRA", subtopic: "Policy & Events" },
+  { url: "https://cointelegraph.com/rss/tag/events", page: "EVENTS", topic: "Web 3.0", subtopic: "Blockchain Events" },
+  { url: "https://www.automationworld.com/rss/events", page: "EVENTS", topic: "Industry 4.0", subtopic: "Automation Events" },
+  { url: "https://www.eventindustrynews.com/category/event-technology/feed", page: "EVENTS", topic: "Tech Events", subtopic: "Industry News" },
 
   // --- Products ---
   { url: "https://www.gsmarena.com/rss-news-comments.php3", page: "PRODUCTS", topic: "Hardware", subtopic: "Mobile" },
