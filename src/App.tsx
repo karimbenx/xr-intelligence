@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchIntelligenceBatch, IntelArticle } from './intelSync';
 import { ALL_FEEDS } from './data/feeds';
+import { ExecutiveDashboard } from './Dashboard';
 import './App.css';
 
 const CATEGORY_MAP: Record<string, string> = {
@@ -17,7 +18,8 @@ export const App: React.FC = () => {
     const [articles, setArticles] = useState<IntelArticle[]>([]);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
-    const [filter, setFilter] = useState('ALL');
+    const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+    const [dataSource, setDataSource] = useState<'DB' | 'RSS' | null>(null);
 
     const loadData = useCallback(async (forceSync = false) => {
         if (forceSync) setSyncing(true);
@@ -33,12 +35,17 @@ export const App: React.FC = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                if (data && data.length > 0) {
-                    setArticles(data);
+                // Handle both new object format and legacy array format
+                const incomingArticles = Array.isArray(data) ? data : data.articles;
+
+                if (incomingArticles && incomingArticles.length > 0) {
+                    setArticles(incomingArticles);
+                    if (data.lastUpdated) setLastUpdated(data.lastUpdated);
+                    setDataSource('DB');
                 } else if (!forceSync) {
-                    // If DB is empty and it wasn't a forced sync, fallback to direct
                     const directData = await fetchIntelligenceBatch(ALL_FEEDS);
                     setArticles(directData);
+                    setDataSource('RSS');
                 }
             } else {
                 throw new Error(`Server responded with ${response.status}`);
@@ -48,6 +55,7 @@ export const App: React.FC = () => {
             // Fallback: Direct RSS fetch in client on failure
             const directData = await fetchIntelligenceBatch(ALL_FEEDS);
             setArticles(directData);
+            setDataSource('RSS');
         }
 
         setLoading(false);
@@ -58,65 +66,29 @@ export const App: React.FC = () => {
         loadData();
     }, [loadData]);
 
-    const categories = ['ALL', 'TECHNOLOGY', 'CUSTOMER', 'GEOGRAPHIC', 'EVENTS', 'COMPANIES', 'PRODUCTS'];
-    const filtered = filter === 'ALL' ? articles : articles.filter(a => a.category === filter);
+    if (loading && articles.length === 0) {
+        return (
+            <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center text-blue-500 font-sans p-8">
+                <div className="relative w-24 h-24 mb-8">
+                    <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full" />
+                    <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-12 h-12 bg-blue-500/10 rounded-full animate-pulse" />
+                    </div>
+                </div>
+                <h2 className="text-xl font-black tracking-widest uppercase mb-2">Synchronizing Matrix</h2>
+                <p className="text-slate-500 text-sm font-mono animate-pulse">Establishing secure intelligence link...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="dashboard-container">
-            <header className="main-header">
-                <nav className="nav-container">
-                    <div className="filter-nav">
-                        {categories.map(cat => (
-                            <button
-                                key={cat}
-                                className={filter === cat ? 'active' : ''}
-                                onClick={() => setFilter(cat)}
-                            >
-                                {CATEGORY_MAP[cat] || cat}
-                            </button>
-                        ))}
-                    </div>
-                </nav>
-
-                <div className="status-indicator">
-                    <span className={syncing ? 'pulse syncing' : 'pulse'}></span>
-                    <span>{syncing ? 'Synchronizing global data streams...' : 'Live Intelligence Stream'}</span>
-                    <button
-                        className="sync-trigger"
-                        onClick={() => loadData(true)}
-                        disabled={loading || syncing}
-                        title="Force sync with source feeds"
-                    >
-                        ↻
-                    </button>
-                </div>
-                <h1 className="hero-title">Dashboard</h1>
-            </header>
-
-            {loading ? (
-                <div className="loading-container">
-                    <div className="loader"></div>
-                    <p style={{ color: '#94a3b8', fontSize: '14px', letterSpacing: '1px' }}>Synchronizing global data streams...</p>
-                </div>
-            ) : (
-                <div className="intel-grid">
-                    {filtered.map((article, idx) => (
-                        <a href={article.link} target="_blank" rel="noopener noreferrer" key={idx} className="intel-card">
-                            <div className="card-header">
-                                <span className="source-pill">{article.source}</span>
-                                <span className="date-text">{new Date(article.pubDate).toLocaleDateString()}</span>
-                            </div>
-                            <h3 className="article-title">{article.title}</h3>
-                            <p className="article-snippet">{article.contentSnippet}</p>
-                            <div className="tag-container">
-                                {article.tags.map(tag => (
-                                    <span key={tag} className="tag-label">#{tag}</span>
-                                ))}
-                            </div>
-                        </a>
-                    ))}
-                </div>
-            )}
-        </div>
+        <ExecutiveDashboard 
+            articles={articles} 
+            isSyncing={syncing} 
+            onSync={() => loadData(true)}
+            lastUpdated={lastUpdated}
+            dataSource={dataSource}
+        />
     );
 };

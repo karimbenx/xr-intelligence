@@ -34,10 +34,21 @@ const CATEGORY_MAP: Record<string, { label: string; icon: React.ReactNode }> = {
     'ARCHIVE': { label: "📦 Intelligence Archive", icon: <Layers size={16} /> },
 };
 
-export const ExecutiveDashboard = ({ articles }: { articles: IntelArticle[] }) => {
+export const ExecutiveDashboard = ({ 
+    articles, 
+    isSyncing, 
+    onSync, 
+    lastUpdated, 
+    dataSource 
+}: { 
+    articles: IntelArticle[], 
+    isSyncing: boolean, 
+    onSync: () => void, 
+    lastUpdated: string | null, 
+    dataSource: 'DB' | 'RSS' | null 
+}) => {
     const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isSyncing, setIsSyncing] = useState(false);
 
     const categories = ['ALL', 'TECHNOLOGY', 'CUSTOMER', 'GEOGRAPHIC', 'EVENTS', 'COMPANIES', 'PRODUCTS', 'SOURCES', 'ARCHIVE'];
 
@@ -114,11 +125,11 @@ export const ExecutiveDashboard = ({ articles }: { articles: IntelArticle[] }) =
                         <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-4 border border-slate-700/30">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">System Status</span>
-                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                                <div className={cn("w-2 h-2 rounded-full", isSyncing ? "bg-blue-500 animate-pulse" : "bg-emerald-500")} />
                             </div>
-                            <p className="text-xs text-slate-300 font-medium mb-1">Live Intelligence Active</p>
+                            <p className="text-xs text-slate-300 font-medium mb-1">{isSyncing ? "Syncing..." : "Live Intelligence Active"}</p>
                             <div className="h-1 bg-slate-800 rounded-full overflow-hidden mt-2">
-                                <div className="h-full bg-blue-500 w-[78%] rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                <div className={cn("h-full bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)] transition-all duration-1000", isSyncing ? "w-[100%] animate-pulse" : "w-[100%]")} />
                             </div>
                         </div>
                     </div>
@@ -143,6 +154,7 @@ export const ExecutiveDashboard = ({ articles }: { articles: IntelArticle[] }) =
                             <div className="flex items-center gap-6">
                                 <StatItem label="Active Nodes" value={stats.total} icon={<Activity size={14} />} />
                                 <StatItem label="Signal Momentum" value={`${stats.trending} High`} icon={<TrendingUp size={14} />} />
+                                {dataSource && <StatItem label="Source Engine" value={dataSource} icon={<Zap size={14} />} />}
                             </div>
                         </div>
 
@@ -152,10 +164,8 @@ export const ExecutiveDashboard = ({ articles }: { articles: IntelArticle[] }) =
                                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full border-2 border-slate-950" />
                             </button>
                             <button 
-                                onClick={() => {
-                                    setIsSyncing(true);
-                                    setTimeout(() => setIsSyncing(false), 2000);
-                                }}
+                                onClick={onSync}
+                                disabled={isSyncing}
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-blue-600/20 active:scale-95",
                                     isSyncing && "opacity-50 cursor-not-allowed"
@@ -181,7 +191,7 @@ export const ExecutiveDashboard = ({ articles }: { articles: IntelArticle[] }) =
 
                             </div>
                             <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
-                                <span>LAST_UPDATE: {new Date().toLocaleTimeString()}</span>
+                                <span>LAST_SYNC: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'PENDING'}</span>
                             </div>
                         </div>
 
