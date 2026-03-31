@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { fetchIntelligenceBatch, IntelArticle } from './intelSync';
 import { ALL_FEEDS } from './data/feeds';
 import './App.css';
@@ -16,17 +16,43 @@ const CATEGORY_MAP: Record<string, string> = {
 export const App: React.FC = () => {
     const [articles, setArticles] = useState<IntelArticle[]>([]);
     const [loading, setLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
     const [filter, setFilter] = useState('ALL');
 
-    useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            const data = await fetchIntelligenceBatch(ALL_FEEDS);
-            setArticles(data);
-            setLoading(false);
-        };
-        loadData();
+    const loadData = useCallback(async (forceSync = false) => {
+        if (forceSync) setSyncing(true);
+        else setLoading(true);
+
+        try {
+            // Try fetching from Neon DB via Netlify Function first
+            const endpoint = forceSync ? '/.netlify/functions/sync-signals?sync=true' : '/.netlify/functions/sync-signals';
+            const response = await fetch(endpoint);
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    setArticles(data);
+                    setLoading(false);
+                    setSyncing(false);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn("DB Fetch failed, falling back to direct RSS", e);
+        }
+
+        if (!forceSync) {
+            // Fallback: Direct RSS fetch in client
+            const directData = await fetchIntelligenceBatch(ALL_FEEDS);
+            setArticles(directData);
+        }
+        setLoading(false);
+        setSyncing(false);
     }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const categories = ['ALL', 'TECHNOLOGY', 'CUSTOMER', 'GEOGRAPHIC', 'EVENTS', 'COMPANIES', 'PRODUCTS'];
     const filtered = filter === 'ALL' ? articles : articles.filter(a => a.category === filter);
@@ -49,8 +75,16 @@ export const App: React.FC = () => {
                 </nav>
 
                 <div className="status-indicator">
-                    <span className="pulse"></span>
-                    <span>Live Intelligence Stream</span>
+                    <span className={syncing ? 'pulse syncing' : 'pulse'}></span>
+                    <span>{syncing ? 'Synchronizing global data streams...' : 'Live Intelligence Stream'}</span>
+                    <button
+                        className="sync-trigger"
+                        onClick={() => loadData(true)}
+                        disabled={loading || syncing}
+                        title="Force sync with source feeds"
+                    >
+                        ↻
+                    </button>
                 </div>
                 <h1 className="hero-title">Dashboard</h1>
             </header>
