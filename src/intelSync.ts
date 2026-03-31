@@ -19,72 +19,63 @@ export async function fetchIntelligenceBatch(feeds: FeedSource[]): Promise<Intel
     const results = await Promise.allSettled(
         feeds.map(async (feed) => {
             try {
-                // Use robust CORS proxy rotation to bypass access restrictions
-                const proxiedFetch = async (url: string) => {
+                // Unified fetch with server-side proxy fallback
+                const fetchArticles = async (url: string) => {
+                    // Strategy 1: Use our dedicated Netlify RSS Proxy (Server-side, no CORS issues)
+                    try {
+                        const netlifyProxyUrl = `/.netlify/functions/rss-proxy?url=${encodeURIComponent(url)}`;
+                        const response = await fetch(netlifyProxyUrl);
+                        if (response.ok) {
+                            const data = await response.json();
+                            return (data.items || []).map((item: any) => ({
+                                title: (item.title || "Untitled Signal").trim(),
+                                link: (item.link || "#").trim(),
+                                pubDate: item.pubDate || new Date().toISOString(),
+                                contentSnippet: (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, '').substring(0, 300).trim(),
+                                source: new URL(feed.url).hostname.replace('www.', ''),
+                                category: feed.page,
+                                tags: detectTags((item.title || "") + " " + (item.contentSnippet || ""))
+                            }));
+                        }
+                    } catch (e) {
+                        console.warn("Netlify RSS Proxy failed, falling back to public proxies", e);
+                    }
+
+                    // Strategy 2: Fallback to public CORS rotation (Legacy XML Parsing)
                     const proxies = [
                         (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
                         (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-                        (u: string) => `https://thingproxy.freeboard.io/fetch/${u}`,
-                        (u: string) => `https://yacdn.org/proxy/${u}`
+                        (u: string) => `https://thingproxy.freeboard.io/fetch/${u}`
                     ];
                     
-                    let lastError: Error | null = null;
                     for (const proxy of proxies) {
                         try {
-                            const proxyUrl = proxy(url);
-                            const response = await fetch(proxyUrl, { 
-                                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
+                            const xmlText = await fetch(proxy(url)).then(r => r.ok ? r.text() : Promise.reject());
+                            const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
+                            const items = Array.from(xmlDoc.querySelectorAll("item, entry, [localName='item'], [localName='entry']"));
+                            
+                            return items.map((item) => {
+                                const title = (item.querySelector("title")?.textContent || "Untitled Signal").trim();
+                                let link = item.querySelector("link")?.getAttribute("href") || item.querySelector("link")?.textContent || "#";
+                                if (link === "#") link = item.getElementsByTagName("link")[0]?.textContent || "#";
+                                
+                                const description = item.querySelector("description, summary, content")?.textContent || "";
+                                return {
+                                    title,
+                                    link: link.trim(),
+                                    pubDate: item.querySelector("pubDate, published, updated")?.textContent || new Date().toISOString(),
+                                    contentSnippet: description.replace(/<[^>]*>/g, '').substring(0, 300).trim(),
+                                    source: new URL(feed.url).hostname.replace('www.', ''),
+                                    category: feed.page,
+                                    tags: detectTags(title + " " + description)
+                                };
                             });
-                            
-                            if (response.ok) return await response.text();
-                            
-                            // If we get an error but the connection worked, log and continue to next proxy
-                            console.warn(`Proxy [${proxyUrl.split('/')[2]}] returned ${response.status} for ${url}`);
-                            lastError = new Error(`HTTP ${response.status}`);
-                        } catch (e: any) {
-                            console.warn(`Proxy failed connection:`, e);
-                            lastError = e;
-                        }
+                        } catch (e) { continue; }
                     }
-                    throw lastError || new Error("ALL_PROXIES_FAILED");
+                    return [];
                 };
                 
-                const xmlText = await proxiedFetch(feed.url);
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                
-                // Detailed selector for various RSS/Atom formats
-                const items = Array.from(xmlDoc.querySelectorAll("item, entry, [localName='item'], [localName='entry']"));
-                
-                let hostname = 'unknown';
-                try { hostname = new URL(feed.url).hostname.replace('www.', ''); } catch (e) {}
-
-                return items.map((item) => {
-                    const titleNode = item.querySelector("title");
-                    const title = (titleNode?.textContent || "Untitled Signal").trim();
-                    
-                    let link = item.querySelector("link")?.getAttribute("href") || 
-                               item.querySelector("link")?.textContent || "#";
-                    
-                    if (link === "#" || link === "") {
-                         const linkNode = item.getElementsByTagName("link")[0];
-                         link = linkNode?.getAttribute("href") || linkNode?.textContent || "#";
-                    }
-                    
-                    const pubDate = item.querySelector("pubDate, published, updated, dc\\:date")?.textContent || new Date().toISOString();
-                    const description = item.querySelector("description, summary, content")?.textContent || "";
-                    const contentSnippet = description.replace(/<[^>]*>/g, '').substring(0, 300).trim();
-
-                    return {
-                        title,
-                        link: link.trim(),
-                        pubDate,
-                        contentSnippet: contentSnippet || "No summary available.",
-                        source: hostname,
-                        category: feed.page,
-                        tags: detectTags(title + " " + contentSnippet)
-                    };
-                });
+                return await fetchArticles(feed.url);
             } catch (err) {
                 console.error(`Feed Access Failure: ${feed.url}`, err);
                 return [];
