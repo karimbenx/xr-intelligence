@@ -4,16 +4,6 @@ import { ALL_FEEDS } from './data/feeds';
 import { ExecutiveDashboard } from './Dashboard';
 import './App.css';
 
-const CATEGORY_MAP: Record<string, string> = {
-    'ALL': 'Home',
-    'TECHNOLOGY': 'Technology',
-    'CUSTOMER': 'Customer Interaction',
-    'GEOGRAPHIC': 'Geographic',
-    'EVENTS': 'Global Events',
-    'COMPANIES': 'Companies',
-    'PRODUCTS': 'Products'
-};
-
 export const App: React.FC = () => {
     const [articles, setArticles] = useState<IntelArticle[]>([]);
     const [loading, setLoading] = useState(true);
