@@ -31,7 +31,7 @@ export const handler: Handler = async (event, _context) => {
     const shouldSync = event.queryStringParameters?.sync === "true" || true; // Always sync for now if possible or if no data
 
     if (shouldSync) {
-        const results = await Promise.allSettled(
+        await Promise.allSettled(
             ALL_FEEDS.map(async (feed) => {
                 try {
                     const data = await parser.parseURL(feed.url);
